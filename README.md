@@ -1,6 +1,6 @@
 # Customer Churn Prediction – Task 2 
 ## Project Overview
-This repository contains **Task 2 of my Machine Learning Internship at Future Interns**, where I developed an **end-to-end Customer Churn Prediction System**.  
+I developed an **end-to-end Customer Churn Prediction System**.  
 The goal was to **predict which customers are likely to churn** and generate **business insights** to help retention strategies in telecom, SaaS, and subscription-based services.
 
 The project includes **data exploration, feature engineering, model training, evaluation, and visualization** using real-world churn data.
