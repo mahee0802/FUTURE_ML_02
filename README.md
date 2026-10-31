@@ -1,4 +1,4 @@
-# Customer Churn Prediction – Task 2 
+# Customer Churn Prediction 
 ## Project Overview
 I developed an **end-to-end Customer Churn Prediction System**.  
 The goal was to **predict which customers are likely to churn** and generate **business insights** to help retention strategies in telecom, SaaS, and subscription-based services.
