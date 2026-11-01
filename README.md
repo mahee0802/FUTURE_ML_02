@@ -32,13 +32,11 @@ A telecom company loses revenue when customers leave. The goal is to **rank cust
 
 ## Results
 
-**5-fold cross-validation (mean):**
-
 | Model | ROC-AUC | PR-AUC | Recall | Precision | F1 |
 |---|---|---|---|---|---|
 | Logistic Regression | 0.845 | 0.655 | 0.803 | 0.513 | 0.626 |
-| Random Forest | 0.821 | 0.605 | 0.470 | 0.627 | 0.537 |
-| XGBoost | 0.847 | 0.665 | 0.798 | 0.521 | 0.630 |
+| Random Forest | 0.823 | 0.602 | 0.642 | 0.560 | 0.598 |
+| XGBoost | 0.848 | 0.666 | 0.796 | 0.521 | 0.630 |
 
 **Held-out test set (20%), Logistic Regression at the tuned threshold (0.544):**
 
