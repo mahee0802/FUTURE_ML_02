@@ -4,6 +4,7 @@ scikit-learn
 xgboost
 matplotlib
 seaborn
+plotly
 joblib
 jupyter
-streamlit
+streamlit>=1.50

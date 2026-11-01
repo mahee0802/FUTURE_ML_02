@@ -1,6 +1,6 @@
 # Customer Churn Prediction – Telco Dataset
 
-End-to-end churn prediction project: data cleaning, EDA, imbalance-aware modelling, cross-validated model comparison, decision-threshold tuning, explainability, and a Power BI dashboard for business stakeholders.
+End-to-end churn prediction project: data cleaning, EDA, imbalance-aware modelling, cross-validated model comparison, decision-threshold tuning, explainability, and an interactive Streamlit dashboard for business stakeholders.
 
 ---
 
@@ -26,7 +26,7 @@ A telecom company loses revenue when customers leave. The goal is to **rank cust
 | Metrics | ROC-AUC, PR-AUC, recall, precision, F1 | More informative than accuracy on imbalanced data |
 | Threshold | Decision threshold tuned on the precision-recall curve (best F1) | The default 0.5 cutoff gives up recall |
 | Explainability | Logistic Regression coefficients and XGBoost feature importance, with real feature names | Shows which factors drive churn |
-| Business view | Top-decile lift table | Shows how well the model prioritises customers |
+| Business view | Top-decile lift table, revenue-at-risk and a retention call list | Shows how well the model prioritises customers and what it is worth |
 
 ---
 
@@ -50,7 +50,8 @@ A telecom company loses revenue when customers leave. The goal is to **rank cust
 
 **Key takeaways**
 - Logistic Regression and XGBoost are almost tied on ROC-AUC, so the simpler and more interpretable model is used as the final model.
-- Tuning for recall lowers accuracy compared with an untuned model (about 79% to about 75%) but catches roughly 20 percentage points more churners. A missed churner costs more than an unnecessary retention offer.
+- Class weighting plus threshold tuning lowers accuracy compared with an unweighted Logistic Regression (about 81% to about 75%) but catches roughly 21 percentage points more churners (recall about 56% to about 77%). A missed churner costs more than an unnecessary retention offer.
+- Class weighting inflates the raw scores (mean score 0.42 vs a 26.5% true churn rate), so the output is a **risk score for ranking**, not a calibrated probability.
 - The strongest churn signals are contract type, tenure, internet service type, and payment method (see the feature plots in the notebook).
 
 ---
@@ -60,27 +61,32 @@ A telecom company loses revenue when customers leave. The goal is to **rank cust
 ```
 ├── data/
 │   ├── WA_Fn-UseC_-Telco-Customer-Churn.csv   # raw dataset
-│   └── churn_predictions.csv                  # test-set predictions (written by the notebook)
-├── app.py                                     # Streamlit demo (loads the saved pipeline)
+│   ├── churn_predictions.csv                  # test-set predictions (written by the notebook)
+│   └── cv_results.csv                         # cross-validation table (written by the notebook)
+├── app.py                                     # Streamlit app: dashboard, model performance, live predictor
+├── .streamlit/config.toml                     # app theme
 ├── notebook/
 │   ├── ML_2.ipynb                             # full analysis and modelling
 │   └── churn_model.joblib                     # saved pipeline + threshold (written by the notebook)
-├── outputs/                                   # exported charts (PNG)
-├── powerbi/
-│   └── ML_2.pbix                              # Power BI dashboard
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## Dashboard (Power BI)
+## Dashboard (Streamlit)
 
-`powerbi/ML_2.pbix` contains:
-- KPI cards: churn rate, average churn probability, high-risk customers
-- Churn vs non-churn split
-- Churn by internet service, contract type, payment method, and tenure
-- Churn probability distribution
+`streamlit run app.py` opens a three-tab app. All numbers are computed from the **20% held-out test set** (1,409 customers), so they are out-of-sample.
+
+**📊 Dashboard**
+- Slicers: contract, internet service, payment method, tenure range, and an adjustable high-risk cutoff
+- KPI cards: customers analysed, churn rate, average churn probability, high-risk customers (and how many actually churned), monthly revenue at risk
+- Churn vs non-churn split; churn by internet service; churn probability by contract and payment method; churn risk by tenure (actual vs predicted); churn probability distribution
+- Retention call list of high-risk customers with CSV download
+
+**🧠 Model performance:** ROC curve, confusion matrix, risk-decile lift, 5-fold CV model comparison, default vs tuned threshold, and the top churn drivers.
+
+**🔮 Predict a customer:** enter a customer's details to get a churn probability gauge, the flag at the tuned threshold, and the features moving the prediction.
 
 ---
 
@@ -89,18 +95,12 @@ A telecom company loses revenue when customers leave. The goal is to **rank cust
 ```bash
 pip install -r requirements.txt
 cd notebook
-jupyter notebook ML_2.ipynb
-```
-
-Run the notebook from the `notebook/` folder; it reads data from `../data/`.
-
-**Demo app (run the notebook first so `notebook/churn_model.joblib` exists):**
-
-```bash
+jupyter notebook ML_2.ipynb      # run all cells
+cd ..
 streamlit run app.py
 ```
 
-Enter a customer's details in the form to get a churn probability, a likely-to-churn flag using the tuned threshold, and the top factors moving the prediction.
+Run the notebook from the `notebook/` folder; it reads data from `../data/` and writes `data/churn_predictions.csv`, `data/cv_results.csv` and `notebook/churn_model.joblib`, which the app reads. Re-run the notebook whenever the model changes and the dashboard updates with it.
 
 **Scoring new customers in code:**
 
@@ -117,13 +117,14 @@ at_risk = (prob >= bundle["threshold"]).astype(int)
 
 ## Tech Stack
 
-Python · pandas · NumPy · scikit-learn · XGBoost · Matplotlib · Seaborn · joblib · Streamlit · Power BI
+Python · pandas · NumPy · scikit-learn · XGBoost · Matplotlib · Seaborn · Plotly · joblib · Streamlit
 
 ---
 
 ## Limitations and Next Steps
 
 - The decision threshold is chosen on the test split. A cleaner approach is to choose it from cross-validated predictions or a separate validation set.
+- Calibrate the probabilities (for example `CalibratedClassifierCV`) so scores can be read as true probabilities.
 - No hyperparameter search yet (`RandomizedSearchCV` / Optuna).
 - No engineered features yet (for example tenure groups, number of add-on services, average monthly spend).
 - Add SHAP values for per-customer explanations.
