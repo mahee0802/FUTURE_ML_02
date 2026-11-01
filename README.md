@@ -22,10 +22,11 @@ A telecom company loses revenue when customers leave. The goal is to **rank cust
 | Encoding | `OneHotEncoder` for categorical features, `StandardScaler` for numeric ones | Avoids the fake ordering that label encoding gives nominal features |
 | Pipeline | Preprocessing + model in a single scikit-learn `Pipeline` | Prevents data leakage during cross-validation |
 | Imbalance | `class_weight='balanced'` (LR, RF) and `scale_pos_weight` (XGBoost) | Stops models from ignoring the minority (churn) class |
+| Oversampling check | SMOTENC inside an `imblearn` pipeline (synthetic rows created from training folds only), compared against class weighting | Tests whether synthetic oversampling beats class weighting; it did not, so class weighting is kept |
 | Validation | 5-fold stratified cross-validation | The models score very similarly, so one split cannot separate them |
 | Metrics | ROC-AUC, PR-AUC, recall, precision, F1 | More informative than accuracy on imbalanced data |
-| Threshold | Decision threshold tuned on the precision-recall curve (best F1) | The default 0.5 cutoff gives up recall |
-| Explainability | Logistic Regression coefficients and XGBoost feature importance, with real feature names | Shows which factors drive churn |
+| Threshold | Best-F1 threshold chosen from **out-of-fold predictions on the training data**, then frozen and evaluated once on the test set | The default 0.5 cutoff gives up recall, and choosing the cutoff on training data keeps the test set untouched |
+| Explainability | Logistic Regression coefficients, XGBoost feature importance, and **SHAP** (`LinearExplainer`): global summary plot and a per-customer waterfall | Shows which factors drive churn overall and why an individual customer is flagged |
 | Business view | Top-decile lift table, revenue-at-risk and a retention call list | Shows how well the model prioritises customers and what it is worth |
 
 ---
@@ -38,19 +39,22 @@ A telecom company loses revenue when customers leave. The goal is to **rank cust
 | Random Forest | 0.823 | 0.602 | 0.642 | 0.560 | 0.598 |
 | XGBoost | 0.848 | 0.666 | 0.796 | 0.521 | 0.630 |
 
-**Held-out test set (20%), Logistic Regression at the tuned threshold (0.544):**
+**Held-out test set (20%), Logistic Regression at the frozen threshold (0.576, chosen from training out-of-fold predictions):**
 
 | Accuracy | Precision (churn) | Recall (churn) | F1 (churn) |
 |---|---|---|---|
-| 0.754 | 0.525 | 0.765 | 0.622 |
+| 0.762 | 0.539 | 0.725 | 0.618 |
 
 **Business view:** the 10% of customers with the highest predicted risk contain **28.6%** of all churners (a 75.9% churn rate in that group vs 26.5% overall).
 
 **Key takeaways**
 - Logistic Regression and XGBoost are almost tied on ROC-AUC, so the simpler and more interpretable model is used as the final model.
-- Class weighting plus threshold tuning lowers accuracy compared with an unweighted Logistic Regression (about 81% to about 75%) but catches roughly 21 percentage points more churners (recall about 56% to about 77%). A missed churner costs more than an unnecessary retention offer.
+- Class weighting plus threshold tuning lowers accuracy compared with an unweighted Logistic Regression (about 81% to about 76%) but catches roughly 17 percentage points more churners (recall about 56% to about 73%). A missed churner costs more than an unnecessary retention offer.
+- SMOTENC was tested against class weighting under the same 5-fold CV. For Logistic Regression it gave ROC-AUC 0.836 vs 0.845 and F1 0.623 vs 0.626 (recall 0.744 vs 0.803), so class weighting is kept: it is simpler and avoids generating synthetic customers.
+- The threshold is selected without looking at the test set (out-of-fold predictions on the training data), so the test metrics above are an honest out-of-sample estimate.
 - Class weighting inflates the raw scores (mean score 0.42 vs a 26.5% true churn rate), so the output is a **risk score for ranking**, not a calibrated probability.
 - The strongest churn signals are contract type, tenure, internet service type, and payment method (see the feature plots in the notebook).
+- SHAP confirms the main drivers and explains individual customers: month-to-month contracts and fiber optic internet raise churn risk, while long tenure and two-year contracts lower it. `tenure`, `MonthlyCharges` and `TotalCharges` are strongly correlated, so their individual signs should be read together rather than one at a time.
 
 ---
 
@@ -115,16 +119,16 @@ at_risk = (prob >= bundle["threshold"]).astype(int)
 
 ## Tech Stack
 
-Python · pandas · NumPy · scikit-learn · XGBoost · Matplotlib · Seaborn · Plotly · joblib · Streamlit
+Python · pandas · NumPy · scikit-learn · XGBoost · imbalanced-learn · SHAP · Matplotlib · Seaborn · Plotly · joblib · Streamlit
 
 ---
 
 ## Limitations and Next Steps
 
-- The decision threshold is chosen on the test split. A cleaner approach is to choose it from cross-validated predictions or a separate validation set.
+- The threshold is chosen from out-of-fold predictions on the training data. A separate validation split is an alternative, and a cost-based rule would be better still (see below).
 - Calibrate the probabilities (for example `CalibratedClassifierCV`) so scores can be read as true probabilities.
 - No hyperparameter search yet (`RandomizedSearchCV` / Optuna).
 - No engineered features yet (for example tenure groups, number of add-on services, average monthly spend).
-- Add SHAP values for per-customer explanations.
+- Add SHAP to the Streamlit app (it currently lives in the notebook).
 - Replace the F1-based threshold with a cost-based one (retention offer cost vs customer lifetime value).
 - Host the Streamlit demo publicly (for example Streamlit Community Cloud) or wrap the pipeline in an API.
